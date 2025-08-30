@@ -1,0 +1,23 @@
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/runtime:8.0-alpine AS base
+USER app
+WORKDIR /app
+
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
+ARG BUILD_CONFIGURATION=Release
+WORKDIR /src
+COPY ["TradeBull.Processor/TradeBull.Processor.csproj", "TradeBull.Processor/"]
+RUN dotnet restore "./TradeBull.Processor/TradeBull.Processor.csproj"
+COPY . .
+WORKDIR "/src/TradeBull.Processor"
+RUN dotnet build "./TradeBull.Processor.csproj" -c $BUILD_CONFIGURATION -o /app/build
+
+FROM build AS publish
+ARG BUILD_CONFIGURATION=Release
+RUN dotnet publish "./TradeBull.Processor.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:SelfContained=false /p:UseAppHost=false
+
+FROM base AS final
+WORKDIR /app
+RUN mkdir ./data
+COPY --from=publish /app/publish .
+ENV DOTNET_ENVIRONMENT=Production
+ENTRYPOINT ["dotnet", "TradeBull.Processor.dll"]

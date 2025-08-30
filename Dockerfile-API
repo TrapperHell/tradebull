@@ -1,0 +1,24 @@
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS base
+USER app
+WORKDIR /app
+EXPOSE 80
+
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
+ARG BUILD_CONFIGURATION=Release
+WORKDIR /src
+COPY ["TradeBull.Api/TradeBull.Api.csproj", "TradeBull.Api/"]
+RUN dotnet restore "./TradeBull.Api/TradeBull.Api.csproj"
+COPY . .
+WORKDIR "/src/TradeBull.Api"
+RUN dotnet build "./TradeBull.Api.csproj" -c $BUILD_CONFIGURATION -o /app/build
+
+FROM build AS publish
+ARG BUILD_CONFIGURATION=Release
+RUN dotnet publish "./TradeBull.Api.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:SelfContained=false /p:UseAppHost=false
+
+FROM base AS final
+WORKDIR /app
+RUN mkdir ./data
+COPY --from=publish /app/publish .
+ENV DOTNET_ENVIRONMENT=Production
+ENTRYPOINT ["dotnet", "TradeBull.Api.dll"]

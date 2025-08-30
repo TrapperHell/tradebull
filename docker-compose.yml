@@ -1,0 +1,43 @@
+services:
+  message-queue:
+    container_name: rabbitmq
+    image: rabbitmq:latest
+    networks:
+      - network
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      
+  api:
+    container_name: api
+    build:
+      context: .
+      dockerfile: Dockerfile-API
+    networks:
+      - network
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      message-queue:
+        condition: service_healthy
+        
+  processor:
+    container_name: processor
+    build:
+      context: .
+      dockerfile: Dockerfile-Processor
+    networks:
+      - network
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      message-queue:
+        condition: service_healthy
+
+networks:
+  network:
+    driver: bridge
